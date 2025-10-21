@@ -207,32 +207,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
-        // Données JSON
-        const data = {
-            'domainespecialite': [
-                {
-                    'nom': 'Pilotage et qualite',
-                    'sousDomaines': [
-                        {
-                            'nom': 'Recherches',
-                            'marcoPrecess': [
-                                {
-                                    'nom': 'recus',
-                                    'process': [
-                                        {
-                                            'nom': 'Traitement'
-                                        },
-                                        {
-                                            'nom': 'Autres'
-                                        },
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
+        // Variable pour stocker les données chargées
+        let data = null;
 
         function createTreeNode(labelText, labelTitle, cssClass, children = null, info = null) {
             const li = document.createElement('li');
@@ -387,20 +363,47 @@
             });
         }
 
-        // Initialisation
-        document.addEventListener('DOMContentLoaded', () => {
-            const container = document.getElementById('treeContainer');
-            container.appendChild(buildTree(data));
-
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    searchTree(e.target.value);
-                });
+        // Fonction pour charger le fichier JSON
+        async function loadData() {
+            try {
+                const response = await fetch('data.json');
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+                data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Erreur lors du chargement du fichier JSON:', error);
+                const container = document.getElementById('treeContainer');
+                container.innerHTML = '<li style="color: red; list-style: none;">Erreur: Impossible de charger le fichier data.json</li>';
+                throw error;
             }
+        }
 
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.addEventListener('click', downloadPDF);
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Charger les données depuis le fichier JSON
+                await loadData();
+
+                // Construire l'arborescence
+                const container = document.getElementById('treeContainer');
+                container.appendChild(buildTree(data));
+
+                // Initialiser la recherche si l'input existe
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    searchInput.addEventListener('input', (e) => {
+                        searchTree(e.target.value);
+                    });
+                }
+
+                // Initialiser le bouton de téléchargement
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.addEventListener('click', downloadPDF);
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation:', error);
+            }
         });
     </script>
 </body>
