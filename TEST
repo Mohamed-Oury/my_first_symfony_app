@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arborescence des Données</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            background: white;
+            border: 1px solid #000;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #000;
+            margin-bottom: 30px;
+            text-align: left;
+            font-size: 2em;
+        }
+
+        .tree {
+            list-style: none;
+            padding-left: 0;
+            text-align: left;
+        }
+
+        #treeContainer {
+            text-align: left;
+        }
+
+        .tree ul {
+            list-style: none;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .tree ul::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #000;
+        }
+
+        .tree li {
+            position: relative;
+            padding: 4px 0 4px 30px;
+            cursor: pointer;
+        }
+
+        .tree li::before {
+            content: '→';
+            position: absolute;
+            left: 5px;
+            top: 4px;
+            font-size: 14px;
+            color: #000;
+        }
+
+        .tree-item {
+            display: inline-block;
+            padding: 4px 10px;
+            transition: all 0.3s ease;
+            margin: 2px 0;
+            border: 1px solid #000;
+            background: white;
+            color: #000;
+            font-size: 0.9em;
+        }
+
+        .tree-item:hover {
+            background: #f5f5f5;
+        }
+
+        .domaine, .sous-domaine, .service, .macro-process, .process {
+            font-weight: normal;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .toggle {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            line-height: 14px;
+            text-align: center;
+            border: 2px solid #000;
+            border-radius: 50%;
+            margin-right: 6px;
+            font-size: 10px;
+            font-weight: bold;
+            background: white;
+            color: #000;
+            transition: all 0.3s ease;
+        }
+
+        .toggle:hover {
+            background: #000;
+            color: white;
+        }
+
+        .collapsed > ul {
+            display: none;
+        }
+
+        .collapsed > .tree-item .toggle::before {
+            content: '+';
+        }
+
+        .expanded > .tree-item .toggle::before {
+            content: '−';
+        }
+
+        .info {
+            display: inline;
+            margin-left: 5px;
+            font-size: 0.9em;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .search-input {
+            width: 100%;
+            max-width: 500px;
+            padding: 12px 20px;
+            border: 2px solid #000;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #000;
+        }
+
+        .highlight {
+            background-color: #ddd;
+            font-weight: bold;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header h1 {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        .download-btn {
+            padding: 12px 24px;
+            background: white;
+            border: 2px solid #000;
+            color: #000;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .download-btn:hover {
+            background: #000;
+            color: white;
+        }
+
+        .download-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Domaines workflow generique</h1>
+            <button class="download-btn" id="downloadBtn">Télécharger PDF</button>
+        </div>
+        <ul class="tree" id="treeContainer"></ul>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+        // Données JSON
+        const data = {
+            'domainespecialite': [
+                {
+                    'nom': 'Pilotage et qualite',
+                    'sousDomaines': [
+                        {
+                            'nom': 'Recherches',
+                            'marcoPrecess': [
+                                {
+                                    'nom': 'recus',
+                                    'process': [
+                                        {
+                                            'nom': 'Traitement'
+                                        },
+                                        {
+                                            'nom': 'Autres'
+                                        },
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        function createTreeNode(labelText, labelTitle, cssClass, children = null, info = null) {
+            const li = document.createElement('li');
+            li.className = 'expanded';
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `tree-item ${cssClass}`;
+
+            if (children && children.length > 0) {
+                const toggle = document.createElement('span');
+                toggle.className = 'toggle';
+                itemDiv.appendChild(toggle);
+
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    li.classList.toggle('collapsed');
+                    li.classList.toggle('expanded');
+                });
+            }
+
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'label';
+            labelSpan.textContent = labelTitle + ':';
+            itemDiv.appendChild(labelSpan);
+
+            const textSpan = document.createElement('span');
+            textSpan.textContent = labelText;
+            itemDiv.appendChild(textSpan);
+
+            if (info) {
+                const infoSpan = document.createElement('span');
+                infoSpan.className = 'info';
+                infoSpan.textContent = info;
+                itemDiv.appendChild(infoSpan);
+            }
+
+            li.appendChild(itemDiv);
+
+            if (children && children.length > 0) {
+                const ul = document.createElement('ul');
+                children.forEach(child => ul.appendChild(child));
+                li.appendChild(ul);
+            }
+
+            return li;
+        }
+
+        function buildTree(data) {
+            const fragment = document.createDocumentFragment();
+
+            if (data.domainespecialite) {
+                data.domainespecialite.forEach(domaine => {
+                    const sousDomaineNodes = [];
+
+                    if (domaine.sousDomaines) {
+                        domaine.sousDomaines.forEach(sousDomaine => {
+                            const macroProcessNodes = [];
+
+                            const serviceNode = createTreeNode(
+                                sousDomaine.nom,
+                                'Sous-domaine',
+                                'sous-domaine'
+                            );
+
+                            if (sousDomaine.marcoPrecess) {
+                                const macroUl = document.createElement('ul');
+
+                                sousDomaine.marcoPrecess.forEach(macro => {
+                                    const processNodes = [];
+
+                                    if (macro.process) {
+                                        macro.process.forEach(proc => {
+                                            processNodes.push(
+                                                createTreeNode(proc.nom, 'Process', 'process')
+                                            );
+                                        });
+                                    }
+
+                                    macroUl.appendChild(
+                                        createTreeNode(macro.nom, 'Macro-process', 'macro-process', processNodes)
+                                    );
+                                });
+
+                                serviceNode.appendChild(macroUl);
+                            }
+
+                            sousDomaineNodes.push(serviceNode);
+                        });
+                    }
+
+                    fragment.appendChild(
+                        createTreeNode(domaine.nom, 'Domaine', 'domaine', sousDomaineNodes)
+                    );
+                });
+            }
+
+            return fragment;
+        }
+
+        // Fonction de recherche
+        function searchTree(searchTerm) {
+            const allItems = document.querySelectorAll('.tree-item span:not(.toggle):not(.info):not(.label)');
+
+            allItems.forEach(item => {
+                const text = item.textContent;
+                const parent = item.closest('li');
+
+                if (searchTerm === '') {
+                    item.innerHTML = text;
+                    parent.style.display = '';
+                } else {
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    if (regex.test(text)) {
+                        item.innerHTML = text.replace(regex, '<span class="highlight">$1</span>');
+                        parent.style.display = '';
+
+                        // Afficher tous les parents
+                        let ancestor = parent.parentElement.closest('li');
+                        while (ancestor) {
+                            ancestor.style.display = '';
+                            ancestor.classList.remove('collapsed');
+                            ancestor.classList.add('expanded');
+                            ancestor = ancestor.parentElement.closest('li');
+                        }
+                    } else {
+                        item.innerHTML = text;
+                        parent.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Fonction de téléchargement en PDF
+        function downloadPDF() {
+            const element = document.querySelector('.container');
+            const button = document.getElementById('downloadBtn');
+
+            // Cacher temporairement le bouton pour le PDF
+            button.style.display = 'none';
+
+            const opt = {
+                margin: 10,
+                filename: 'arborescence_donnees.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Réafficher le bouton après la génération
+                button.style.display = 'block';
+            });
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            const container = document.getElementById('treeContainer');
+            container.appendChild(buildTree(data));
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    searchTree(e.target.value);
+                });
+            }
+
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.addEventListener('click', downloadPDF);
+        });
+    </script>
+</body>
+</html>
